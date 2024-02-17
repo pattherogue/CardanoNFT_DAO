@@ -1,0 +1,74 @@
+-- OwnershipTransfer.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module OwnershipTransfer (
+    Transfer(..),
+    TransferDatum(..),
+    transferOwnership
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for ownership transfer
+data Transfer = Transfer
+    { tokenId :: Integer
+    , newOwner :: PubKeyHash
+    }
+
+data TransferDatum = TransferDatum
+    { transfers :: Map.Map Integer PubKeyHash
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Transfer
+instance FromJSON Transfer
+instance ToJSON TransferDatum
+instance FromJSON TransferDatum
+
+-- Define the validator script for ownership transfer
+validateOwnershipTransfer :: Transfer -> TransferDatum -> ScriptContext -> Bool
+validateOwnershipTransfer Transfer{tokenId, newOwner} TransferDatum{transfers} ctx =
+    Map.lookup tokenId transfers == Just (scriptContextTxInfo ctx) && -- Ensure the sender owns the NFT
+    newOwner /= scriptContextTxInfo ctx && -- Ensure the new owner is different from the current owner
+    traceIfFalse "Token ID must exist in the transfers map" (Map.member tokenId transfers)
+    -- Add any additional validation rules here
+
+ownershipTransferValidator :: Transfer -> Scripts.TypedValidator TransferDatum
+ownershipTransferValidator transfer = mkTypedValidator @TransferDatum
+    ($$(PlutusTx.compile [|| validateOwnershipTransfer ||]) `PlutusTx.applyCode` PlutusTx.liftCode transfer)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @TransferDatum @Transfer
+
+-- Define the address of the ownership transfer validator script
+ownershipTransferValidatorAddress :: Transfer -> Ledger.Address
+ownershipTransferValidatorAddress transfer = scriptAddress (ownershipTransferValidator transfer)
+
+-- Define the entry point for transferring ownership
+transferOwnership :: Transfer -> Contract () TransferSchema Text ()
+transferOwnership transfer = do
+    let val = ownershipTransferValidator transfer
+    key <- submitTx $ scriptInstanceContractAt val (ownershipTransferValidatorAddress transfer)
+    void $ awaitTxConfirmed $ txId key
