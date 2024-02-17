@@ -1,0 +1,72 @@
+-- ProposalSubmission.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module ProposalSubmission (
+    Proposal(..),
+    ProposalDatum(..),
+    submitProposal
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for proposals
+data Proposal = Proposal
+    { proposalId :: Integer
+    , proposalDetails :: Text
+    }
+
+data ProposalDatum = ProposalDatum
+    { proposals :: Map.Map Integer Proposal
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Proposal
+instance FromJSON Proposal
+instance ToJSON ProposalDatum
+instance FromJSON ProposalDatum
+
+-- Define the validator script for proposal submission
+validateProposal :: Proposal -> ProposalDatum -> ScriptContext -> Bool
+validateProposal proposal@Proposal{proposalId} ProposalDatum{proposals} ctx =
+    traceIfFalse "Proposal ID must be unique" (not $ Map.member proposalId proposals)
+    -- Add any additional validation rules here
+
+proposalValidator :: Scripts.TypedValidator Proposal
+proposalValidator = mkTypedValidator @ProposalDatum
+    ($$(PlutusTx.compile [|| validateProposal ||]) `PlutusTx.applyCode` PlutusTx.liftCode ())
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @ProposalDatum @Proposal
+
+-- Define the address of the proposal validator script
+proposalValidatorAddress :: Ledger.Address
+proposalValidatorAddress = scriptAddress proposalValidator
+
+-- Define the entry point for submitting a proposal
+submitProposal :: Proposal -> Contract () ProposalSchema Text ()
+submitProposal proposal = do
+    let val = proposalValidator
+    key <- submitTx $ scriptInstanceContractAt val proposalValidatorAddress
+    void $ awaitTxConfirmed $ txId key
