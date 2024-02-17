@@ -1,0 +1,71 @@
+-- MetadataStorage.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module MetadataStorage (
+    Metadata(..),
+    MetadataStorageDatum(..),
+    storeMetadata
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for metadata
+data Metadata = Metadata
+    { tokenId :: Integer
+    , metadata :: Text
+    }
+
+data MetadataStorageDatum = MetadataStorageDatum
+    { metadataMap :: Map.Map Integer Text
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Metadata
+instance FromJSON Metadata
+instance ToJSON MetadataStorageDatum
+instance FromJSON MetadataStorageDatum
+
+-- Define the validator script for metadata storage
+validateMetadataStorage :: Metadata -> MetadataStorageDatum -> ScriptContext -> Bool
+validateMetadataStorage Metadata{tokenId} MetadataStorageDatum{metadataMap} _ =
+    not $ Map.member tokenId metadataMap -- Ensure the token ID is unique
+
+metadataStorageValidator :: Metadata -> Scripts.TypedValidator MetadataStorageDatum
+metadataStorageValidator metadata = mkTypedValidator @MetadataStorageDatum
+    ($$(PlutusTx.compile [|| validateMetadataStorage ||]) `PlutusTx.applyCode` PlutusTx.liftCode metadata)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @MetadataStorageDatum @Metadata
+
+-- Define the address of the metadata storage validator script
+metadataStorageValidatorAddress :: Metadata -> Ledger.Address
+metadataStorageValidatorAddress metadata = scriptAddress (metadataStorageValidator metadata)
+
+-- Define the entry point for storing metadata
+storeMetadata :: Metadata -> Contract () MetadataStorageSchema Text ()
+storeMetadata metadata = do
+    let val = metadataStorageValidator metadata
+    key <- submitTx $ scriptInstanceContractAt val (metadataStorageValidatorAddress metadata)
+    void $ awaitTxConfirmed $ txId key
