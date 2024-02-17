@@ -1,0 +1,82 @@
+-- MembershipManagement.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module MembershipManagement (
+    Membership(..),
+    MembershipDatum(..),
+    MembershipParam(..),
+    startMembershipContract
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+import           Data.ByteString.Lazy     (ByteString)
+import           Plutus.V1.Ledger.Ada    as Ada
+
+-- Define the data types for membership
+data MembershipParam = MembershipParam
+    { membershipFee :: Integer
+    }
+
+data MembershipDatum = MembershipDatum
+    { member :: PubKeyHash
+    }
+
+data Membership
+
+-- Define JSON instances for data types
+instance ToJSON MembershipDatum
+instance FromJSON MembershipDatum
+instance ToJSON MembershipParam
+instance FromJSON MembershipParam
+
+-- Define the validator script for membership management
+validateMembership :: MembershipParam -> MembershipDatum -> ScriptContext -> Bool
+validateMembership MembershipParam{membershipFee} MembershipDatum{member} ctx =
+    traceIfFalse "Membership fee must be greater than 0" (membershipFee > 0) &&
+    traceIfFalse "Incorrect amount paid" (txAmount == Ada.toValue membershipFee) &&
+    traceIfFalse "Membership already exists" (isNothing $ findDatumHash member ctx)
+  where
+    txAmount :: Value
+    txAmount = valuePaidTo (scriptAddress ctx) $ txInfoPayments ctx
+
+membershipValidator :: MembershipParam -> Scripts.TypedValidator Membership
+membershipValidator membershipParams = mkTypedValidator @Membership
+    ($$(PlutusTx.compile [|| validateMembership ||]) `PlutusTx.applyCode` PlutusTx.liftCode membershipParams)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @MembershipDatum @Membership
+
+-- Define the address of the membership validator script
+membershipValidatorAddress :: MembershipParam -> Ledger.Address
+membershipValidatorAddress membershipParams = scriptAddress (membershipValidator membershipParams)
+
+-- Define the entry points for the contract
+startMembershipContract :: MembershipParam -> Contract () MembershipSchema Text ()
+startMembershipContract membershipParams = do
+    logInfo @String "Starting membership contract"
+    let val = membershipValidator membershipParams
+    key <- submitTx $ scriptInstanceContract val
+    void $ awaitTxConfirmed $ txId key
+    logInfo @String $ "Membership contract deployed at: " ++ show (membershipValidatorAddress membershipParams)
