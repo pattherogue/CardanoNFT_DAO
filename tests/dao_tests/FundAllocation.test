@@ -1,0 +1,42 @@
+-- FundAllocation.test
+
+module FundAllocationTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import FundAllocation
+
+-- Test case 1: Test fund allocation
+testFundAllocation :: TestTree
+testFundAllocation = testCase "Fund allocation" $ do
+    -- Simulate fund allocation
+    let recipientAddress = "0x456def"
+        amount = 1000 -- Change as needed
+    allocateFunds recipientAddress amount
+
+    -- Verify that the funds are allocated correctly
+    allocatedAmount <- getAllocatedFunds recipientAddress
+    assertEqual "Funds not allocated correctly" amount allocatedAmount
+
+-- Test case 2: Test fund transfer
+testFundTransfer :: TestTree
+testFundTransfer = testCase "Fund transfer" $ do
+    -- Simulate fund transfer
+    let recipientAddress = "0x456def"
+        amount = 500 -- Change as needed
+    transferFunds recipientAddress amount
+
+    -- Verify that the funds are transferred correctly
+    transferredAmount <- getTransferredFunds recipientAddress
+    assertEqual "Funds not transferred correctly" amount transferredAmount
+
+-- Define test suite for FundAllocation smart contract
+fundAllocationTests :: TestTree
+fundAllocationTests = testGroup "FundAllocation Tests"
+    [ testFundAllocation
+    , testFundTransfer
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain fundAllocationTests
