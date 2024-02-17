@@ -1,0 +1,29 @@
+-- MetadataStorage.test
+
+module MetadataStorageTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import MetadataStorage
+
+-- Test case 1: Test metadata storage
+testMetadataStorage :: TestTree
+testMetadataStorage = testCase "Metadata storage" $ do
+    -- Simulate storing metadata for an NFT
+    let tokenId = "12345"
+        metadata = "metadata for the NFT" -- Change as needed
+    storeMetadata tokenId metadata
+
+    -- Verify that the metadata is stored correctly
+    storedMetadata <- retrieveMetadata tokenId
+    assertEqual "Metadata not stored correctly" metadata storedMetadata
+
+-- Define test suite for MetadataStorage smart contract
+metadataStorageTests :: TestTree
+metadataStorageTests = testGroup "MetadataStorage Tests"
+    [ testMetadataStorage
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain metadataStorageTests
