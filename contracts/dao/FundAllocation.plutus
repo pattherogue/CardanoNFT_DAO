@@ -1,0 +1,73 @@
+-- FundAllocation.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module FundAllocation (
+    Allocation(..),
+    FundAllocationDatum(..),
+    allocateFunds
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for fund allocation
+data Allocation = Allocation
+    { recipient :: PubKeyHash
+    , amount :: Value
+    }
+
+data FundAllocationDatum = FundAllocationDatum
+    { allocations :: Map.Map PubKeyHash Value
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Allocation
+instance FromJSON Allocation
+instance ToJSON FundAllocationDatum
+instance FromJSON FundAllocationDatum
+
+-- Define the validator script for fund allocation
+validateAllocation :: Allocation -> FundAllocationDatum -> ScriptContext -> Bool
+validateAllocation Allocation{recipient, amount} FundAllocationDatum{allocations} ctx =
+    traceIfFalse "Allocation amount must be greater than 0" (amount > 0) &&
+    traceIfFalse "Recipient must be unique" (not $ Map.member recipient allocations)
+    -- Add any additional validation rules here
+
+allocationValidator :: Allocation -> Scripts.TypedValidator FundAllocationDatum
+allocationValidator allocation = mkTypedValidator @FundAllocationDatum
+    ($$(PlutusTx.compile [|| validateAllocation ||]) `PlutusTx.applyCode` PlutusTx.liftCode allocation)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @FundAllocationDatum @Allocation
+
+-- Define the address of the allocation validator script
+allocationValidatorAddress :: Allocation -> Ledger.Address
+allocationValidatorAddress allocation = scriptAddress (allocationValidator allocation)
+
+-- Define the entry point for allocating funds
+allocateFunds :: Allocation -> Contract () FundAllocationSchema Text ()
+allocateFunds allocation = do
+    let val = allocationValidator allocation
+    key <- submitTx $ scriptInstanceContractAt val (allocationValidatorAddress allocation)
+    void $ awaitTxConfirmed $ txId key

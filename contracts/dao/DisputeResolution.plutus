@@ -1,0 +1,72 @@
+-- DisputeResolution.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module DisputeResolution (
+    Dispute(..),
+    DisputeResolutionDatum(..),
+    resolveDispute
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for disputes
+data Dispute = Dispute
+    { disputeId :: Integer
+    , disputeDetails :: Text
+    }
+
+data DisputeResolutionDatum = DisputeResolutionDatum
+    { disputes :: Map.Map Integer Dispute
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Dispute
+instance FromJSON Dispute
+instance ToJSON DisputeResolutionDatum
+instance FromJSON DisputeResolutionDatum
+
+-- Define the validator script for dispute resolution
+validateDispute :: Dispute -> DisputeResolutionDatum -> ScriptContext -> Bool
+validateDispute dispute@Dispute{disputeId} DisputeResolutionDatum{disputes} ctx =
+    traceIfFalse "Dispute ID must be unique" (not $ Map.member disputeId disputes)
+    -- Add any additional validation rules here
+
+disputeValidator :: Dispute -> Scripts.TypedValidator DisputeResolutionDatum
+disputeValidator dispute = mkTypedValidator @DisputeResolutionDatum
+    ($$(PlutusTx.compile [|| validateDispute ||]) `PlutusTx.applyCode` PlutusTx.liftCode dispute)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @DisputeResolutionDatum @Dispute
+
+-- Define the address of the dispute validator script
+disputeValidatorAddress :: Dispute -> Ledger.Address
+disputeValidatorAddress dispute = scriptAddress (disputeValidator dispute)
+
+-- Define the entry point for resolving a dispute
+resolveDispute :: Dispute -> Contract () DisputeResolutionSchema Text ()
+resolveDispute dispute = do
+    let val = disputeValidator dispute
+    key <- submitTx $ scriptInstanceContractAt val (disputeValidatorAddress dispute)
+    void $ awaitTxConfirmed $ txId key
