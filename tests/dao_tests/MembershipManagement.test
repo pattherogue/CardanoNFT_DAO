@@ -1,0 +1,54 @@
+-- MembershipManagement.test
+
+module MembershipManagementTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import MembershipManagement
+
+-- Test case 1: Test membership registration
+testMembershipRegistration :: TestTree
+testMembershipRegistration = testCase "Membership registration" $ do
+    -- Simulate membership registration for a new user
+    let newMemberAddress = "0x123abc"
+    registerMembership newMemberAddress
+
+    -- Verify that the user is added to the list of members
+    members <- getMembers
+    assertBool "New member not added" (newMemberAddress `elem` members)
+
+-- Test case 2: Test membership removal
+testMembershipRemoval :: TestTree
+testMembershipRemoval = testCase "Membership removal" $ do
+    -- Simulate membership removal for an existing user
+    let existingMemberAddress = "0x123abc"
+    unregisterMembership existingMemberAddress
+
+    -- Verify that the user is removed from the list of members
+    members <- getMembers
+    assertBool "Existing member not removed" (existingMemberAddress `notElem` members)
+
+-- Test case 3: Test membership status check
+testMembershipStatus :: TestTree
+testMembershipStatus = testCase "Membership status check" $ do
+    -- Simulate membership status check for a valid member
+    let validMemberAddress = "0x123abc"
+    isMember <- checkMembershipStatus validMemberAddress
+    assertBool "Valid member not recognized" isMember
+
+    -- Simulate membership status check for a non-member
+    let nonMemberAddress = "0x456def"
+    isNonMember <- checkMembershipStatus nonMemberAddress
+    assertBool "Non-member recognized incorrectly" (not isNonMember)
+
+-- Define test suite for MembershipManagement smart contract
+membershipManagementTests :: TestTree
+membershipManagementTests = testGroup "MembershipManagement Tests"
+    [ testMembershipRegistration
+    , testMembershipRemoval
+    , testMembershipStatus
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain membershipManagementTests

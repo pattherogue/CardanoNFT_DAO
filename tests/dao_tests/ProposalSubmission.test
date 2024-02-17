@@ -1,0 +1,41 @@
+-- ProposalSubmission.test
+
+module ProposalSubmissionTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import ProposalSubmission
+
+-- Test case 1: Test proposal submission
+testProposalSubmission :: TestTree
+testProposalSubmission = testCase "Proposal submission" $ do
+    -- Simulate proposal submission
+    let proposalId = 1
+        proposalContent = "This is a test proposal."
+    submitProposal proposalId proposalContent
+
+    -- Verify that the proposal is added to the list of proposals
+    proposals <- getProposals
+    assertBool "Proposal not submitted" (proposalId `elem` map fst proposals)
+
+-- Test case 2: Test proposal retrieval
+testProposalRetrieval :: TestTree
+testProposalRetrieval = testCase "Proposal retrieval" $ do
+    -- Simulate proposal retrieval
+    proposals <- getProposals
+
+    -- Verify that the retrieved proposals match the expected content
+    let expectedProposalIds = [1, 2, 3] -- Modify as needed
+    assertEqual "Incorrect number of proposals retrieved" (length expectedProposalIds) (length proposals)
+    mapM_ (\(pid, content) -> assertBool ("Proposal with ID " ++ show pid ++ " not found") (pid `elem` expectedProposalIds && content /= "")) proposals
+
+-- Define test suite for ProposalSubmission smart contract
+proposalSubmissionTests :: TestTree
+proposalSubmissionTests = testGroup "ProposalSubmission Tests"
+    [ testProposalSubmission
+    , testProposalRetrieval
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain proposalSubmissionTests
