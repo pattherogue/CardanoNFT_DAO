@@ -46,4 +46,73 @@ This project aims to develop smart contracts for a decentralized autonomous orga
 - Perform code reviews and optimizations to enhance efficiency and security.
 - Deploy smart contracts to the Cardano blockchain and integrate them into the intended applications.
 
+## Instructions to Start the Project
+
+### Prerequisites
+1. Node.js and npm installed on your system. You can download and install Node.js from the official website: [Node.js](https://nodejs.org/).
+
+### Setup
+1. Clone the project repository to your local machine:
+
+    ```bash
+    git clone <repository-url>
+    ```
+
+2. Navigate to the project directory:
+
+    ```bash
+    cd <project-directory>
+    ```
+
+3. Install dependencies for both the frontend and the smart contracts:
+
+    ```bash
+    cd frontend
+    npm install
+    ```
+
+    ```bash
+    cd ../contracts
+    npm install
+    ```
+
+### Running the Frontend
+1. Start the frontend development server:
+
+    ```bash
+    cd frontend
+    npm start
+    ```
+
+2. The frontend development server should start running, and your default browser should open automatically with the application running. If not, you can access it at [http://localhost:3000](http://localhost:3000).
+
+### Running Tests
+1. Run tests for the smart contracts:
+
+    ```bash
+    cd contracts
+    npm test
+    ```
+
+    This command will execute all the test suites and provide feedback on the test results.
+
+### Building the Frontend for Production
+1. To build the frontend for production deployment, run:
+
+    ```bash
+    cd frontend
+    npm run build
+    ```
+
+    This command will create a production-ready build of the frontend application in the `build` directory.
+
+### Deploying Smart Contracts
+1. Follow the deployment instructions specific to your blockchain platform (e.g., Cardano). This typically involves compiling your smart contracts and deploying them to the blockchain using tools like Plutus or other deployment scripts.
+
+### Contributing
+1. If you want to contribute to the project, make sure to fork the repository first, then clone your forked repository to your local machine. After making changes, submit a pull request to the main repository for review.
+
+### Feedback and Support
+1. If you encounter any issues or have feedback on the project, please open an issue in the project repository or reach out to the project team for support.
+
 For any questions or further information, please refer to the project documentation or contact the project team.
