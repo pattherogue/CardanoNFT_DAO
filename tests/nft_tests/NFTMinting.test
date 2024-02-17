@@ -1,0 +1,30 @@
+-- NFTMinting.test
+
+module NFTMintingTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import NFTMinting
+
+-- Test case 1: Test NFT minting
+testNFTMinting :: TestTree
+testNFTMinting = testCase "NFT minting" $ do
+    -- Simulate NFT minting
+    let tokenId = "12345"
+        ownerAddress = "0x123abc"
+        metadata = "metadata for the NFT" -- Change as needed
+    mintNFT tokenId ownerAddress metadata
+
+    -- Verify that the NFT is minted correctly
+    nftMetadata <- getNFTMetadata tokenId
+    assertEqual "NFT not minted correctly" metadata nftMetadata
+
+-- Define test suite for NFTMinting smart contract
+nftMintingTests :: TestTree
+nftMintingTests = testGroup "NFTMinting Tests"
+    [ testNFTMinting
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain nftMintingTests

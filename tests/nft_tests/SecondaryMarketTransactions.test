@@ -1,0 +1,34 @@
+-- SecondaryMarketTransactions.test
+
+module SecondaryMarketTransactionsTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import SecondaryMarketTransactions
+
+-- Test case 1: Test NFT purchase from secondary market
+testNFTPurchase :: TestTree
+testNFTPurchase = testCase "NFT purchase from secondary market" $ do
+    -- Simulate NFT purchase from secondary market
+    let tokenId = "12345"
+        buyer = "0x456def"
+        seller = "0x123abc"
+        price = 1000 -- Change as needed
+    purchaseNFT tokenId buyer seller price
+
+    -- Verify that the NFT is transferred to the buyer and the seller receives payment
+    buyerBalance <- getBalance buyer
+    sellerBalance <- getBalance seller
+    nftOwner <- getNFTOwner tokenId
+    assertEqual "NFT not transferred to buyer" buyer nftOwner
+    assertBool "Seller did not receive payment" (sellerBalance > 0)
+
+-- Define test suite for SecondaryMarketTransactions smart contract
+secondaryMarketTransactionsTests :: TestTree
+secondaryMarketTransactionsTests = testGroup "SecondaryMarketTransactions Tests"
+    [ testNFTPurchase
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain secondaryMarketTransactionsTests

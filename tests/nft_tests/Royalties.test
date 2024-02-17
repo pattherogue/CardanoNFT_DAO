@@ -1,0 +1,31 @@
+-- Royalties.test
+
+module RoyaltiesTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import Royalties
+
+-- Test case 1: Test royalty payment upon secondary sale
+testRoyaltyPayment :: TestTree
+testRoyaltyPayment = testCase "Royalty payment upon secondary sale" $ do
+    -- Simulate secondary sale of an NFT
+    let tokenId = "12345"
+        seller = "0x123abc"
+        buyer = "0x456def"
+        salePrice = 1000 -- Change as needed
+    secondarySale tokenId seller buyer salePrice
+
+    -- Verify that the royalty payment is made to the creator
+    creatorBalance <- getBalance creatorAddress -- Replace with actual creator address
+    assertBool "Creator did not receive royalty payment" (creatorBalance > 0)
+
+-- Define test suite for Royalties smart contract
+royaltiesTests :: TestTree
+royaltiesTests = testGroup "Royalties Tests"
+    [ testRoyaltyPayment
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain royaltiesTests

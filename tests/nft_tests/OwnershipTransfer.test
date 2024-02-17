@@ -1,0 +1,30 @@
+-- OwnershipTransfer.test
+
+module OwnershipTransferTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import OwnershipTransfer
+
+-- Test case 1: Test NFT ownership transfer
+testOwnershipTransfer :: TestTree
+testOwnershipTransfer = testCase "Ownership transfer" $ do
+    -- Simulate NFT ownership transfer
+    let tokenId = "12345"
+        currentOwner = "0x123abc"
+        newOwner = "0x456def"
+    transferOwnership tokenId currentOwner newOwner
+
+    -- Verify that the ownership transfer is successful
+    transferredOwner <- getNFTOwner tokenId
+    assertEqual "Ownership transfer failed" newOwner transferredOwner
+
+-- Define test suite for OwnershipTransfer smart contract
+ownershipTransferTests :: TestTree
+ownershipTransferTests = testGroup "OwnershipTransfer Tests"
+    [ testOwnershipTransfer
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain ownershipTransferTests
