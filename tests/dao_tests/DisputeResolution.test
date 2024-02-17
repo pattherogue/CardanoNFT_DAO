@@ -1,0 +1,42 @@
+-- DisputeResolution.test
+
+module DisputeResolutionTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import DisputeResolution
+
+-- Test case 1: Test dispute submission
+testDisputeSubmission :: TestTree
+testDisputeSubmission = testCase "Dispute submission" $ do
+    -- Simulate dispute submission
+    let proposalId = 1
+        disputedBy = "0x123abc"
+        reason = "This proposal is unfair."
+    submitDispute proposalId disputedBy reason
+
+    -- Verify that the dispute is recorded
+    recordedDispute <- getDispute proposalId
+    assertEqual "Dispute not recorded correctly" (disputedBy, reason) recordedDispute
+
+-- Test case 2: Test dispute resolution
+testDisputeResolution :: TestTree
+testDisputeResolution = testCase "Dispute resolution" $ do
+    -- Simulate dispute resolution
+    let proposalId = 1
+    resolveDispute proposalId
+
+    -- Verify that the dispute is resolved
+    isResolved <- isDisputeResolved proposalId
+    assertBool "Dispute not resolved correctly" isResolved
+
+-- Define test suite for DisputeResolution smart contract
+disputeResolutionTests :: TestTree
+disputeResolutionTests = testGroup "DisputeResolution Tests"
+    [ testDisputeSubmission
+    , testDisputeResolution
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain disputeResolutionTests

@@ -1,0 +1,41 @@
+-- GovernanceParameterUpdates.test
+
+module GovernanceParameterUpdatesTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import GovernanceParameterUpdates
+
+-- Test case 1: Test parameter update
+testParameterUpdate :: TestTree
+testParameterUpdate = testCase "Parameter update" $ do
+    -- Simulate parameter update
+    let parameterName = "VotingThreshold"
+        newValue = 0.6 -- Change as needed
+    updateParameter parameterName newValue
+
+    -- Verify that the parameter is updated correctly
+    updatedValue <- getParameter parameterName
+    assertEqual "Parameter not updated correctly" newValue updatedValue
+
+-- Test case 2: Test parameter retrieval
+testParameterRetrieval :: TestTree
+testParameterRetrieval = testCase "Parameter retrieval" $ do
+    -- Simulate parameter retrieval
+    let parameterName = "QuorumThreshold"
+        expectedValue = 0.5 -- Modify as needed
+    retrievedValue <- getParameter parameterName
+
+    -- Verify that the retrieved value matches the expected value
+    assertEqual "Incorrect parameter value retrieved" expectedValue retrievedValue
+
+-- Define test suite for GovernanceParameterUpdates smart contract
+governanceParameterUpdatesTests :: TestTree
+governanceParameterUpdatesTests = testGroup "GovernanceParameterUpdates Tests"
+    [ testParameterUpdate
+    , testParameterRetrieval
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain governanceParameterUpdatesTests
