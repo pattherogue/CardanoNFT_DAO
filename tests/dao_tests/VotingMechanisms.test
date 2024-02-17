@@ -1,0 +1,42 @@
+-- VotingMechanisms.test
+
+module VotingMechanismsTest where
+
+import Test.Tasty
+import Test.Tasty.HUnit
+import VotingMechanisms
+
+-- Test case 1: Test vote submission
+testVoteSubmission :: TestTree
+testVoteSubmission = testCase "Vote submission" $ do
+    -- Simulate vote submission
+    let proposalId = 1
+        voterAddress = "0x123abc"
+        vote = True -- Change as needed (e.g., True for "yes", False for "no")
+    submitVote proposalId voterAddress vote
+
+    -- Verify that the vote is recorded
+    recordedVote <- getVote proposalId voterAddress
+    assertEqual "Vote not recorded correctly" vote recordedVote
+
+-- Test case 2: Test vote tallying
+testVoteTallying :: TestTree
+testVoteTallying = testCase "Vote tallying" $ do
+    -- Simulate vote tallying for a proposal
+    let proposalId = 1
+        expectedYesVotes = 10 -- Modify as needed
+        expectedNoVotes = 5 -- Modify as needed
+    tally <- getVoteTally proposalId
+    assertEqual "Incorrect number of yes votes" expectedYesVotes (yesVotes tally)
+    assertEqual "Incorrect number of no votes" expectedNoVotes (noVotes tally)
+
+-- Define test suite for VotingMechanisms smart contract
+votingMechanismsTests :: TestTree
+votingMechanismsTests = testGroup "VotingMechanisms Tests"
+    [ testVoteSubmission
+    , testVoteTallying
+    ]
+
+-- Entry point for running the test suite
+main :: IO ()
+main = defaultMain votingMechanismsTests
