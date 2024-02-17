@@ -1,0 +1,76 @@
+-- Royalties.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module Royalties (
+    Royalty(..),
+    RoyaltiesDatum(..),
+    payRoyalties
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for royalties
+data Royalty = Royalty
+    { creator :: PubKeyHash
+    , percentage :: Integer
+    }
+
+data RoyaltiesDatum = RoyaltiesDatum
+    { totalSales :: Integer
+    , royalties :: Map.Map PubKeyHash Value
+    }
+
+-- Define JSON instances for data types
+instance ToJSON Royalty
+instance FromJSON Royalty
+instance ToJSON RoyaltiesDatum
+instance FromJSON RoyaltiesDatum
+
+-- Define the validator script for royalty payments
+validateRoyaltyPayment :: Royalty -> Value -> RoyaltiesDatum -> ScriptContext -> Bool
+validateRoyaltyPayment Royalty{creator, percentage} value RoyaltiesDatum{totalSales, royalties} ctx =
+    traceIfFalse "Royalty percentage must be between 0 and 100" (percentage >= 0 && percentage <= 100) &&
+    traceIfFalse "Total sales must be greater than or equal to 0" (totalSales >= 0) &&
+    traceIfFalse "Creator must not be already listed in royalties" (not $ Map.member creator royalties) &&
+    value >= (totalSales * percentage) -- Ensure the payment covers the percentage of total sales
+    -- Add any additional validation rules here
+
+royaltiesValidator :: Royalty -> Value -> Scripts.TypedValidator RoyaltiesDatum
+royaltiesValidator royalty value = mkTypedValidator @RoyaltiesDatum
+    ($$(PlutusTx.compile [|| validateRoyaltyPayment ||]) `PlutusTx.applyCode` PlutusTx.liftCode royalty `PlutusTx.applyCode` PlutusTx.liftCode value)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @RoyaltiesDatum @(Royalty, Value)
+
+-- Define the address of the royalties validator script
+royaltiesValidatorAddress :: Royalty -> Value -> Ledger.Address
+royaltiesValidatorAddress royalty value = scriptAddress (royaltiesValidator royalty value)
+
+-- Define the entry point for paying royalties
+payRoyalties :: Royalty -> Value -> Contract () RoyaltiesSchema Text ()
+payRoyalties royalty value = do
+    let val = royaltiesValidator royalty value
+    key <- submitTx $ scriptInstanceContractAt val (royaltiesValidatorAddress royalty value)
+    void $ awaitTxConfirmed $ txId key

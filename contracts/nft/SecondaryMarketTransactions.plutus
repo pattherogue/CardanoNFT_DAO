@@ -1,0 +1,71 @@
+-- SecondaryMarketTransactions.plutus
+
+-- Define the necessary imports
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+
+module SecondaryMarketTransactions (
+    SecondaryMarketTx(..),
+    SecondaryMarketDatum(..),
+    executeSecondaryMarketTx
+) where
+
+import           Plutus.Contract
+import qualified PlutusTx
+import           PlutusTx.Prelude         hiding (Semigroup(..), unless)
+import           Ledger.Typed.Scripts     as Scripts
+import           Ledger                   hiding (singleton)
+import           Ledger.Contexts          as V
+import           Data.Aeson               (FromJSON, ToJSON)
+import           Data.Void                (Void)
+import           Prelude                  (Semigroup(..))
+import qualified Data.Map                 as Map
+import           Data.Text                (Text)
+
+-- Define the data types for secondary market transactions
+data SecondaryMarketTx = Sell Integer Value | Buy Integer
+
+data SecondaryMarketDatum = SecondaryMarketDatum
+    { nftsForSale :: Map.Map Integer Value
+    , soldNFTs :: Map.Map Integer Bool
+    }
+
+-- Define JSON instances for data types
+instance ToJSON SecondaryMarketTx
+instance FromJSON SecondaryMarketTx
+instance ToJSON SecondaryMarketDatum
+instance FromJSON SecondaryMarketDatum
+
+-- Define the validator script for secondary market transactions
+validateSecondaryMarketTx :: SecondaryMarketTx -> SecondaryMarketDatum -> ScriptContext -> Bool
+validateSecondaryMarketTx (Sell tokenId _) SecondaryMarketDatum{nftsForSale} _ =
+    Map.member tokenId nftsForSale -- Ensure the NFT is listed for sale
+validateSecondaryMarketTx (Buy tokenId) SecondaryMarketDatum{_} _ =
+    True -- Allow buying any listed NFT
+
+secondaryMarketValidator :: SecondaryMarketTx -> Scripts.TypedValidator SecondaryMarketDatum
+secondaryMarketValidator tx = mkTypedValidator @SecondaryMarketDatum
+    ($$(PlutusTx.compile [|| validateSecondaryMarketTx ||]) `PlutusTx.applyCode` PlutusTx.liftCode tx)
+    $$(PlutusTx.compile [|| wrap ||])
+  where
+    wrap = Scripts.wrapValidator @SecondaryMarketDatum @SecondaryMarketTx
+
+-- Define the address of the secondary market validator script
+secondaryMarketValidatorAddress :: SecondaryMarketTx -> Ledger.Address
+secondaryMarketValidatorAddress tx = scriptAddress (secondaryMarketValidator tx)
+
+-- Define the entry point for executing secondary market transactions
+executeSecondaryMarketTx :: SecondaryMarketTx -> Contract () SecondaryMarketTxSchema Text ()
+executeSecondaryMarketTx tx = do
+    let val = secondaryMarketValidator tx
+    key <- submitTx $ scriptInstanceContractAt val (secondaryMarketValidatorAddress tx)
+    void $ awaitTxConfirmed $ txId key
