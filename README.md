@@ -1,4 +1,4 @@
-# Cardano NFT DAO Project (A NOVM BASED PROJECT)
+# Cardano NFT DAO Project (NOVM)
 
 ## Overview
 This project aims to develop smart contracts for a decentralized autonomous organization (DAO) governance system and non-fungible token (NFT) functionalities on the Cardano blockchain. The project includes the implementation of membership management, voting mechanisms, fund allocation, dispute resolution, governance parameter updates for the DAO, as well as NFT minting, ownership transfer, secondary market transactions, royalties, and metadata storage functionalities.
